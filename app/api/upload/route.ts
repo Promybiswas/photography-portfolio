@@ -1,5 +1,5 @@
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { NextResponse } from "next/server";
-import { writeFile, mkdir, readFile } from "fs/promises";
 import path from "path";
 
 const PHOTOS_DIR = "public/Photos";
