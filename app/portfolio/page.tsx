@@ -27,7 +27,7 @@ export default async function Portfolio() {
         Portfolio
       </h1>
       <p className="mt-4 text-[var(--muted)]">
-        A selection of recent and favorite work.
+        A selection of recent and favorite work
       </p>
 
       <UploadPhotos />

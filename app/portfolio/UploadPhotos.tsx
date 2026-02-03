@@ -69,7 +69,7 @@ export default function UploadPhotos() {
   }
 
   return (
-    <section className="mt-0 rounded-xl border border-[var(--border)] bg-white/50 p-6">
+    <section className="mt-8 rounded-xl border border-[var(--border)] bg-white/50 p-6">
       <h2 className="font-serif text-xl font-semibold tracking-tight text-[var(--foreground)]">
         Upload photos
       </h2>
