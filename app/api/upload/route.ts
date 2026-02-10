@@ -1,11 +1,10 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
 import { NextResponse } from "next/server";
-import path from "path";
+import { revalidatePath } from "next/cache";
+import { getSupabase } from "@/lib/supabase";
 
-const PHOTOS_DIR = "public/Photos";
-const GALLERY_PATH = "data/gallery.json";
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const BUCKET_NAME = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "photos";
 
 function sanitize(name: string): string {
   return name.replace(/[^a-zA-Z0-9.-]/g, "_").slice(0, 80) || "image";
@@ -18,24 +17,7 @@ export async function POST(request: Request) {
     const titles = formData.getAll("titles") as string[];
 
     if (!files?.length) {
-      return NextResponse.json(
-        { error: "No files provided" },
-        { status: 400 }
-      );
-    }
-
-    const cwd = process.cwd();
-    const photosDir = path.join(cwd, PHOTOS_DIR);
-
-    await mkdir(photosDir, { recursive: true });
-
-    const galleryPath = path.join(cwd, GALLERY_PATH);
-    let gallery: { src: string; title: string }[] = [];
-    try {
-      const raw = await readFile(galleryPath, "utf-8");
-      gallery = JSON.parse(raw);
-    } catch {
-      gallery = [];
+      return NextResponse.json({ error: "No files provided" }, { status: 400 });
     }
 
     const added: { src: string; title: string }[] = [];
@@ -44,6 +26,7 @@ export async function POST(request: Request) {
       const file = files[i];
       if (!file?.size) continue;
 
+      // Validate file
       if (file.size > MAX_SIZE) {
         return NextResponse.json(
           { error: `File "${file.name}" exceeds 10MB limit` },
@@ -52,34 +35,54 @@ export async function POST(request: Request) {
       }
       if (!ALLOWED_TYPES.includes(file.type)) {
         return NextResponse.json(
-          { error: `File "${file.name}" has unsupported type. Use JPEG, PNG, WebP, or GIF.` },
+          {
+            error: `File "${file.name}" has unsupported type. Use JPEG, PNG, WebP, or GIF.`,
+          },
           { status: 400 }
         );
       }
 
-      const ext = path.extname(file.name) || ".jpg";
-      const base = sanitize(path.basename(file.name, ext));
-      const unique = `${base}_${Date.now()}_${i}${ext}`;
-      const filePath = path.join(photosDir, unique);
+      // Prepare file name
+      const ext = file.name.split(".").pop() || "jpg";
+      const base = sanitize(file.name.replace(/\.[^/.]+$/, ""));
+      const uniqueName = `${base}_${Date.now()}_${i}.${ext}`;
 
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await getSupabase().storage
+        .from(BUCKET_NAME)
+        .upload(uniqueName, file, { cacheControl: "3600", upsert: false });
 
-      const src = `/Photos/${unique}`;
-      const title = (titles[i]?.toString() || base).trim() || `Photo ${gallery.length + 1}`;
-      gallery.push({ src, title });
-      added.push({ src, title });
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: publicUrlData } = getSupabase().storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(uniqueName);
+
+      const title = (titles[i]?.toString() || base).trim() || `Photo ${i + 1}`;
+
+      // Insert into gallery table
+      const { error: insertError } = await getSupabase()
+        .from("gallery")
+        .insert([{ src: publicUrlData.publicUrl, title }]);
+
+      if (insertError) throw insertError;
+
+      added.push({ src: publicUrlData.publicUrl, title });
     }
 
-    await writeFile(galleryPath, JSON.stringify(gallery, null, 2), "utf-8");
-
+    revalidatePath("/portfolio");
     return NextResponse.json({ success: true, added });
   } catch (err) {
     console.error("Upload error:", err);
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: string }).message)
+        : "Upload failed";
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Upload failed" },
+      { error: message },
       { status: 500 }
     );
   }
 }
+

@@ -1,5 +1,4 @@
-import { readFile } from "fs/promises";
-import path from "path";
+import { getSupabase } from "@/lib/supabase";
 import UploadPhotos from "./UploadPhotos";
 import PortfolioGallery from "./PortfolioGallery";
 
@@ -8,14 +7,20 @@ export const metadata = {
   description: "Gallery of fine art and portrait photography.",
 };
 
+export const dynamic = "force-dynamic";
+
 async function getGallery(): Promise<{ src: string; title: string }[]> {
-  try {
-    const galleryPath = path.join(process.cwd(), "data", "gallery.json");
-    const raw = await readFile(galleryPath, "utf-8");
-    return JSON.parse(raw);
-  } catch {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("gallery")
+    .select("src, title");
+
+  if (error) {
+    console.error("Gallery fetch error:", error);
     return [];
   }
+  const list = data ?? [];
+  return [...list].reverse();
 }
 
 export default async function Portfolio() {

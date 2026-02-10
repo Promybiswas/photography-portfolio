@@ -8,12 +8,41 @@ const labelClass = "block text-sm font-medium text-[var(--foreground)]";
 
 export default function Contact() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatus("sending");
-    await new Promise((r) => setTimeout(r, 800));
-    setStatus("sent");
+    setErrorMessage("");
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const preferredDate = formData.get("preferredDate");
+    const body = {
+      name: formData.get("name"),
+      email: formData.get("email"),
+      phone: formData.get("phone") || null,
+      location: formData.get("location") || null,
+      preferred_date: preferredDate || null,
+      message: formData.get("message"),
+    };
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMessage(data.error ?? "Something went wrong");
+        setStatus("error");
+        return;
+      }
+      setStatus("sent");
+    } catch {
+      setErrorMessage("Network error. Please try again.");
+      setStatus("error");
+    }
   }
 
   return (
@@ -118,6 +147,9 @@ export default function Contact() {
           <p className="text-center text-sm text-[var(--muted)]">
             Thanks! I&apos;ll be in touch soon.
           </p>
+        )}
+        {status === "error" && errorMessage && (
+          <p className="text-center text-sm text-red-600">{errorMessage}</p>
         )}
       </form>
     </div>

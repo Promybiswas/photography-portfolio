@@ -8,9 +8,19 @@ type GalleryItem = { src: string; title: string };
 export default function PortfolioGallery({ gallery }: { gallery: GalleryItem[] }) {
   const [selected, setSelected] = useState<number | null>(null);
 
+  if (gallery.length === 0) {
+    return (
+      <div className="mt-12 rounded-2xl border border-dashed border-[var(--border)] bg-[var(--background)]/50 py-16 text-center">
+        <p className="text-[var(--muted)]">No photos in the gallery yet.</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">Upload photos above to see them here.</p>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <h2 className="mt-12 font-serif text-2xl font-medium text-[var(--foreground)]">Gallery</h2>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {gallery.map((item, i) => (
           <button
             type="button"
