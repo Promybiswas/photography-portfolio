@@ -29,6 +29,7 @@ function Nav() {
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
     { href: "/portfolio", label: "Portfolio" },
+    { href: "/ai-photo-studio", label: "AI Photo Studio" },
     { href: "/contact", label: "Contact" },
   ];
   return (

@@ -7,11 +7,41 @@
   --accent: #a39282;
   --accent-hover: #8a7a6b;
   --border: #e8e4df;
+  /* shadcn-compatible tokens */
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --primary: #1a1a1a;
+  --primary-foreground: #faf8f5;
+  --secondary: #f0ebe6;
+  --secondary-foreground: var(--foreground);
+  --muted-foreground: var(--muted);
+  --accent-color: #e8e4df;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --ring: var(--accent);
+  --input: var(--border);
+  --radius: 0.75rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-color);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
   --font-sans: var(--font-geist-sans);
   --font-serif: var(--font-cormorant);
 }
