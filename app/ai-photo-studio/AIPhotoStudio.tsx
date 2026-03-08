@@ -42,20 +42,17 @@ export default function AIPhotoStudio() {
     }
   };
 
-  const handleSendPrompt = () => {
-    if (!customPrompt.trim() && files.length === 0) return;
-  };
-
   const actionIcons = [
     <Button
       key="attachment"
       type="button"
       variant="ghost"
-      size="icon"
       aria-label="Attach file"
       onClick={handleAddFile}
+      className="gap-2 px-3"
     >
       <Paperclip className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">Add reference</span>
     </Button>,
   ];
 
@@ -380,13 +377,11 @@ export default function AIPhotoStudio() {
                 placeholder="Describe the style or effect you want..."
                 files={files}
                 onFileRemove={handleRemoveFile}
-                onSend={handleSendPrompt}
                 actionIcons={actionIcons}
                 textareaProps={{
                   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      handleSendPrompt();
                     }
                   },
                 }}

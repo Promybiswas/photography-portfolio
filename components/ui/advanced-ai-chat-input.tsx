@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Button, type ButtonProps } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Textarea, type TextareaProps } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
-import { CornerUpLeft, X } from "lucide-react";
+import { X } from "lucide-react";
 
 // Interface for individual file props
 interface FileAttachment {
@@ -21,10 +21,8 @@ interface AdvancedChatInputProps
     "value" | "onChange" | "placeholder"
   > {
   textareaProps?: TextareaProps;
-  sendButtonProps?: ButtonProps;
   files?: FileAttachment[];
   onFileRemove?: (id: string | number) => void;
-  onSend?: () => void;
   actionIcons?: React.ReactNode[];
   /** Optional top-level value (merged into textareaProps) */
   value?: string;
@@ -42,10 +40,8 @@ const AdvancedChatInput = React.forwardRef<
     {
       className,
       textareaProps,
-      sendButtonProps,
       files = [],
       onFileRemove,
-      onSend,
       actionIcons = [],
       value,
       onChange,
@@ -56,7 +52,6 @@ const AdvancedChatInput = React.forwardRef<
   ) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const effectiveValue = value ?? textareaProps?.value ?? "";
-    const hasValue = !!effectiveValue;
     const hasFiles = files.length > 0;
 
     const mergedTextareaProps: TextareaProps = {
@@ -127,38 +122,19 @@ const AdvancedChatInput = React.forwardRef<
             rows={1}
             {...mergedTextareaProps}
             className={cn(
-              "min-h-[40px] w-full resize-none border-none bg-transparent pr-20 shadow-none focus-visible:ring-0",
+              "min-h-[40px] w-full resize-none border-none bg-transparent shadow-none focus-visible:ring-0",
               mergedTextareaProps?.className
             )}
           />
         </div>
 
-        {/* Actions and Send Button */}
-        <div className="mt-2 flex items-center justify-between">
+        {/* Actions */}
+        <div className="mt-2 flex items-center">
           <div className="flex items-center gap-1">
             {actionIcons.map((icon, index) => (
               <React.Fragment key={index}>{icon}</React.Fragment>
             ))}
           </div>
-
-          <motion.div
-            key={hasValue || hasFiles ? "active" : "inactive"}
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.5, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Button
-              size="icon"
-              disabled={!hasValue && !hasFiles}
-              onClick={onSend}
-              {...sendButtonProps}
-              className={cn("rounded-full", sendButtonProps?.className)}
-            >
-              <CornerUpLeft className="h-4 w-4" />
-              <span className="sr-only">Send</span>
-            </Button>
-          </motion.div>
         </div>
       </div>
     );
