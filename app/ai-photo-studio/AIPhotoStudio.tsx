@@ -6,65 +6,128 @@ import {
   type FileAttachment,
 } from "@/components/ui/advanced-ai-chat-input";
 import { Button } from "@/components/ui/button";
-import { FileText, Link, Mic, Upload } from "lucide-react";
+import { Download, FileText, Paperclip, Upload, X } from "lucide-react";
 
 const MAX_FILE_SIZE_MB = 10;
 const ACCEPTED_TYPES = "image/jpeg,image/png,image/webp,image/gif";
+const STYLE_OPTIONS = [
+  { label: "Oil painting", value: "oil" },
+  { label: "Watercolor", value: "watercolor" },
+  { label: "Anime", value: "anime" },
+  { label: "Vintage", value: "vintage" },
+  { label: "Cinematic", value: "cinematic" },
+] as const;
+type StyleValue = (typeof STYLE_OPTIONS)[number]["value"];
 
 export default function AIPhotoStudio() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const referenceInputRef = React.useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = React.useState<"preset" | "custom">("preset");
-  const [preset, setPreset] = React.useState("Oil painting");
+  const [preset, setPreset] = React.useState<StyleValue>("oil");
   const [customPrompt, setCustomPrompt] = React.useState("");
   const [files, setFiles] = React.useState<FileAttachment[]>([]);
   const [uploadedImage, setUploadedImage] = React.useState<File | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
+  const [isGenerating, setIsGenerating] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState("");
+  const [successMessage, setSuccessMessage] = React.useState("");
+  const [resultUrl, setResultUrl] = React.useState("");
 
-  const handleAddFile = () => {
-    const newFile: FileAttachment = {
-      id: Date.now(),
-      name: `reference_${files.length + 1}.jpg`,
-      icon: <FileText className="h-4 w-4 text-muted-foreground" />,
-    };
-    setFiles((prev) => [...prev, newFile]);
-  };
+  const handleAddFile = () => referenceInputRef.current?.click();
 
   const handleRemoveFile = (id: string | number) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
+    if (referenceInputRef.current) {
+      referenceInputRef.current.value = "";
+    }
   };
 
   const handleSendPrompt = () => {
-    if (!customPrompt && files.length === 0) return;
-    console.log("AI Photo Studio — prompt:", {
-      prompt: customPrompt,
-      attachments: files.map((f) => f.name),
-    });
-    setCustomPrompt("");
-    setFiles([]);
+    if (!customPrompt.trim() && files.length === 0) return;
   };
 
   const actionIcons = [
-    <Button key="link" variant="ghost" size="icon" aria-label="Attach link">
-      <Link className="h-4 w-4 text-muted-foreground" />
-    </Button>,
-    <Button key="mic" variant="ghost" size="icon" aria-label="Use microphone">
-      <Mic className="h-4 w-4 text-muted-foreground" />
+    <Button
+      key="attachment"
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Attach file"
+      onClick={handleAddFile}
+    >
+      <Paperclip className="h-4 w-4 text-muted-foreground" />
     </Button>,
   ];
 
-  const handleCreateAIImage = () => {
-    const promptToUse =
-      activeTab === "custom" ? customPrompt : preset;
-    console.log("Create AI image:", { style: promptToUse, attachments: files, image: uploadedImage?.name });
+  const handleCreateAIImage = async () => {
+    if (!uploadedImage) {
+      setErrorMessage("Upload an image before generating.");
+      setSuccessMessage("");
+      return;
+    }
+
+    if (activeTab === "custom" && !customPrompt.trim()) {
+      setErrorMessage("Enter a custom prompt before generating.");
+      setSuccessMessage("");
+      return;
+    }
+
+    setIsGenerating(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append("image", uploadedImage);
+      formData.append("mode", activeTab === "custom" ? "prompt" : "style");
+
+      if (activeTab === "custom") {
+        formData.append("prompt", customPrompt.trim());
+      } else {
+        formData.append("style", preset);
+      }
+
+      const response = await fetch("/api/ai-photo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+        resultUrl?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to generate AI image.");
+      }
+
+      setResultUrl(data.resultUrl ?? "");
+      setSuccessMessage(data.message ?? "Your AI photo is ready.");
+    } catch (error) {
+      setResultUrl("");
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to generate AI image."
+      );
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      alert(`File is too large. Max size is ${MAX_FILE_SIZE_MB}MB.`);
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Please upload a JPEG, PNG, WebP or GIF image.");
+      setSuccessMessage("");
       return;
     }
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setErrorMessage(`File is too large. Max size is ${MAX_FILE_SIZE_MB}MB.`);
+      setSuccessMessage("");
+      return;
+    }
+    setErrorMessage("");
     setUploadedImage(file);
   };
 
@@ -74,17 +137,56 @@ export default function AIPhotoStudio() {
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      alert("Please drop an image file (JPEG, PNG, WebP or GIF).");
+      setErrorMessage("Please drop a JPEG, PNG, WebP or GIF image.");
+      setSuccessMessage("");
       return;
     }
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      alert(`File is too large. Max size is ${MAX_FILE_SIZE_MB}MB.`);
+      setErrorMessage(`File is too large. Max size is ${MAX_FILE_SIZE_MB}MB.`);
+      setSuccessMessage("");
       return;
     }
+    setErrorMessage("");
     setUploadedImage(file);
   };
 
   const openFilePicker = () => fileInputRef.current?.click();
+  const handleReferenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files ?? []);
+    if (!selectedFiles.length) return;
+
+    setFiles((prev) => [
+      ...prev,
+      ...selectedFiles.map((file, index) => ({
+        id: `${file.name}-${file.lastModified}-${index}`,
+        name: file.name,
+        icon: <FileText className="h-4 w-4 text-muted-foreground" />,
+      })),
+    ]);
+  };
+
+  const handleClearImage = () => {
+    setUploadedImage(null);
+    setResultUrl("");
+    setSuccessMessage("");
+    setErrorMessage("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDownloadResult = () => {
+    if (!resultUrl) return;
+
+    const link = document.createElement("a");
+    link.href = resultUrl;
+    link.download = `ai-photo-${Date.now()}.png`;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <main className="min-h-screen bg-neutral-200 flex items-center justify-center p-6">
@@ -104,6 +206,15 @@ export default function AIPhotoStudio() {
             className="hidden"
             aria-hidden
           />
+          <input
+            ref={referenceInputRef}
+            type="file"
+            accept={ACCEPTED_TYPES}
+            multiple
+            onChange={handleReferenceChange}
+            className="hidden"
+            aria-hidden
+          />
           <div
             role="button"
             tabIndex={0}
@@ -120,13 +231,23 @@ export default function AIPhotoStudio() {
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            className={`flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition-colors ${
-              isDragging
-                ? "border-neutral-500 bg-neutral-100"
-                : "border-neutral-300 bg-neutral-50 hover:bg-neutral-100"
-            } ${uploadedImage ? "border-solid border-green-400 bg-green-50/50" : ""}`}
+            className={`overflow-hidden rounded-2xl border-2 px-6 text-center transition-colors ${
+              resultUrl
+                ? "border-solid border-neutral-200 bg-neutral-50"
+                : isDragging
+                  ? "flex min-h-[220px] cursor-pointer flex-col items-center justify-center border-dashed border-neutral-500 bg-neutral-100"
+                  : `flex min-h-[220px] cursor-pointer flex-col items-center justify-center border-dashed border-neutral-300 bg-neutral-50 hover:bg-neutral-100 ${
+                      uploadedImage ? "border-solid border-green-400 bg-green-50/50" : ""
+                    }`
+            }`}
           >
-            {uploadedImage ? (
+            {resultUrl ? (
+              <img
+                src={resultUrl}
+                alt="AI-generated result"
+                className="h-auto w-full object-cover"
+              />
+            ) : uploadedImage ? (
               <>
                 <p className="text-[15px] font-medium text-neutral-700">
                   {uploadedImage.name}
@@ -151,6 +272,44 @@ export default function AIPhotoStudio() {
               </>
             )}
           </div>
+          {resultUrl ? (
+            <div className="mt-3 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadResult}
+                disabled={isGenerating}
+                aria-label="Download generated image"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClearImage}
+                disabled={isGenerating}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Clear result
+              </Button>
+            </div>
+          ) : uploadedImage ? (
+            <div className="mt-3 flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClearImage}
+                disabled={isGenerating}
+              >
+                <X className="mr-2 h-4 w-4" />
+                {uploadedImage.name}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         {/* Style Preset Section */}
@@ -186,14 +345,14 @@ export default function AIPhotoStudio() {
             <div className="relative mt-4">
               <select
                 value={preset}
-                onChange={(e) => setPreset(e.target.value)}
+                onChange={(e) => setPreset(e.target.value as StyleValue)}
                 className="w-full appearance-none rounded-xl border border-neutral-300 bg-neutral-50 py-3.5 pl-4 pr-10 text-[15px] font-medium text-neutral-800 focus:outline-none"
               >
-                <option>Oil painting</option>
-                <option>Watercolor</option>
-                <option>Anime</option>
-                <option>Vintage</option>
-                <option>Cinematic</option>
+                {STYLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500">
                 <svg
@@ -214,7 +373,7 @@ export default function AIPhotoStudio() {
           )}
 
           {activeTab === "custom" && (
-            <div className="mt-4 space-y-2">
+            <div className="mt-4">
               <AdvancedChatInput
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
@@ -232,16 +391,6 @@ export default function AIPhotoStudio() {
                   },
                 }}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddFile}
-                className="w-full"
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Attach reference
-              </Button>
             </div>
           )}
         </div>
@@ -251,11 +400,20 @@ export default function AIPhotoStudio() {
           <button
             type="button"
             onClick={handleCreateAIImage}
-            className="w-full rounded-2xl bg-gradient-to-b from-neutral-900 to-black py-4 text-lg font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition hover:opacity-90"
+            disabled={isGenerating}
+            className="w-full rounded-2xl bg-gradient-to-b from-neutral-900 to-black py-4 text-lg font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Create AI image
+            {isGenerating ? "Generating..." : "Create AI image"}
           </button>
         </div>
+
+        {errorMessage ? (
+          <p className="mt-4 text-sm text-red-600">{errorMessage}</p>
+        ) : null}
+
+        {successMessage ? (
+          <p className="mt-4 text-sm text-green-700">{successMessage}</p>
+        ) : null}
       </div>
     </main>
   );

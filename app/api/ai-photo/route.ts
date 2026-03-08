@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -20,6 +20,7 @@ function sanitize(name: string): string {
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabaseServer();
     const apiKey = process.env.FAL_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     const base = sanitize(image.name.replace(/\.[^/.]+$/, ""));
     const uniqueName = `ai-input/${base}_${Date.now()}.${ext}`;
 
-    const { error: uploadError } = await getSupabase().storage
+    const { error: uploadError } = await supabase.storage
       .from(AI_INPUT_BUCKET)
       .upload(uniqueName, image, { cacheControl: "3600", upsert: false });
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: publicUrlData } = getSupabase().storage
+    const { data: publicUrlData } = supabase.storage
       .from(AI_INPUT_BUCKET)
       .getPublicUrl(uniqueName);
 
